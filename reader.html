@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reader — Define & Bookmark</title>
+
+<style>
+  :root {
+    --bg: #F7F5F0;
+    --surface: #FFFFFF;
+    --surface2: #F0EDE6;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1A1814;
+    --text2: #6B6760;
+    --text3: #A09C97;
+    --accent: #3D2F1E;
+    --accent-light: #EAE3D8;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Paste Screen ── */
+  #paste-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    gap: 1.5rem;
+  }
+
+  .logo {
+    font-family: 'Lora', serif;
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+
+  .tagline {
+    font-size: 14px;
+    color: var(--text2);
+    text-align: center;
+    max-width: 380px;
+    line-height: 1.65;
+  }
+
+  #paste-area {
+    width: 100%;
+    max-width: 600px;
+    min-height: 180px;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    font-size: 15px;
+    line-height: 1.75;
+    font-family: 'Lora', serif;
+    background: var(--surface);
+    color: var(--text);
+    resize: vertical;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  #paste-area:focus { border-color: var(--accent); }
+
+  #paste-area::placeholder { color: var(--text3); font-style: italic; }
+
+  #start-btn {
+    padding: 10px 28px;
+    border-radius: var(--radius);
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    transition: opacity .15s;
+  }
+
+  #start-btn:hover { opacity: 0.88; }
+
+  /* ── Gear icon on paste screen ── */
+  #settings-icon-btn {
+    position: fixed;
+    top: 18px;
+    right: 20px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s, color .15s, transform .2s;
+    z-index: 300;
+  }
+  #settings-icon-btn:hover { background: var(--surface2); color: var(--text); transform: rotate(30deg); }
+  #settings-icon-btn svg { width: 17px; height: 17px; }
+
+  /* ── Settings modal ── */
+  #settings-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.25);
+    z-index: 400;
+    backdrop-filter: blur(2px);
+  }
+  #settings-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 500;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 1.6rem 1.75rem;
+    width: 360px;
+    max-width: 94vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  }
+  #settings-modal.open { display: block; }
+  #settings-overlay.open { display: block; }
+
+  .sm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+  .sm-title {
+    font-family: 'Lora', serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .sm-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 20px;
+    line-height: 1;
+    padding: 2px 4px;
+    transition: color .15s;
+  }
+  .sm-close:hover { color: var(--text); }
+
+  .sm-field { margin-bottom: 1rem; }
+  .sm-field:last-child { margin-bottom: 0; }
+
+  .sm-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text3);
+    margin-bottom: 6px;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .sm-select, .sm-input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s;
+  }
+  .sm-select:focus, .sm-input:focus { border-color: var(--accent); }
+  .sm-input { font-family: monospace; font-size: 12.5px; letter-spacing: 0.4px; }
+
+  .sm-hint {
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--text3);
+    font-style: italic;
+  }
+
+  .sm-save-btn {
+    width: 100%;
+    margin-top: 1.25rem;
+    padding: 9px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13.5px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+  .sm-save-btn:hover { opacity: 0.88; }
+
+  /* gear icon in reader top bar */
+  #reader-settings-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    cursor: pointer;
+    transition: background .15s, color .15s, transform .2s;
+  }
+  #reader-settings-btn:hover { background: var(--surface2); color: var(--text); transform: rotate(30deg); }
+  #reader-settings-btn svg { width: 14px; height: 14px; }
+
+  /* ── Reader Screen ── */
+  #reader-screen { display: none; min-height: 100vh; flex-direction: column; }
+
+  #top-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(247,245,240,0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo-sm {
+    font-family: 'Lora', serif;
+    font-size: 17px;
+    font-weight: 400;
+    color: var(--accent);
+  }
+
+  .hint-text {
+    font-size: 12px;
+    color: var(--text3);
+    font-style: italic;
+  }
+
+  #top-actions { display: flex; gap: 8px; }
+
+  .tb-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+  }
+
+  .tb-btn:hover { background: var(--surface2); color: var(--text); }
+
+  #bm-count {
+    font-size: 11px;
+    background: var(--accent-light);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 1px 6px;
+    font-weight: 500;
+  }
+
+  #reading-area {
+    max-width: 680px;
+    margin: 3rem auto;
+    padding: 0 2rem 4rem;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 18px;
+    line-height: 1.9;
+    color: var(--text);
+    user-select: text;
+    cursor: text;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* ── Popup ── */
+  #popup-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+  }
+
+  #popup {
+    display: none;
+    position: fixed;
+    z-index: 100;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.4rem;
+    width: 360px;
+    max-width: 92vw;
+  }
+
+  #popup-loading {
+    font-size: 13px;
+    color: var(--text2);
+    text-align: center;
+    padding: 0.5rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .spin {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #popup-term {
+    font-family: 'Lora', serif;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  #popup-type {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text3);
+    margin-bottom: 10px;
+  }
+
+  #popup-def {
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--text2);
+    margin-bottom: 10px;
+  }
+
+  #popup-context {
+    font-size: 12px;
+    font-style: italic;
+    font-family: 'Lora', serif;
+    color: var(--text3);
+    border-left: 2px solid var(--accent-light);
+    padding-left: 10px;
+    margin-bottom: 14px;
+    line-height: 1.55;
+  }
+
+  #popup-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+  .p-btn {
+    padding: 6px 14px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text2);
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .p-btn:hover { background: var(--surface2); }
+
+  .p-btn.save-btn {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+
+  .p-btn.save-btn:hover { opacity: 0.88; }
+
+  /* ── Bookmarks Panel ── */
+  #bookmarks-panel {
+    display: none;
+    position: fixed;
+    top: 0; right: 0;
+    height: 100vh;
+    width: 340px;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    z-index: 200;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #bm-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  #bm-header h3 {
+    font-family: 'Lora', serif;
+    font-size: 16px;
+    font-weight: 400;
+  }
+
+  #bm-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text2);
+    font-size: 22px;
+    line-height: 1;
+    padding: 2px 4px;
+  }
+
+  #bm-close:hover { color: var(--text); }
+
+  #bm-list { flex: 1; overflow-y: auto; padding: 1rem; }
+
+  .bm-item {
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    position: relative;
+    background: var(--bg);
+  }
+
+  .bm-term {
+    font-family: 'Lora', serif;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: var(--text);
+    padding-right: 20px;
+  }
+
+  .bm-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+
+  .bm-def {
+    font-size: 12.5px;
+    color: var(--text2);
+    line-height: 1.55;
+    margin-bottom: 8px;
+  }
+
+  .bm-sentence {
+    font-size: 11.5px;
+    font-style: italic;
+    font-family: 'Lora', serif;
+    color: var(--text3);
+    border-left: 2px solid var(--accent-light);
+    padding-left: 8px;
+    line-height: 1.45;
+  }
+
+  .bm-del {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px;
+  }
+
+  .bm-del:hover { color: #c0392b; }
+
+  .bm-empty {
+    font-size: 13px;
+    color: var(--text3);
+    text-align: center;
+    padding: 3rem 1rem;
+    font-style: italic;
+    font-family: 'Lora', serif;
+    line-height: 1.7;
+  }
+
+  /* ── Toast ── */
+  #saved-toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent);
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 400;
+    opacity: 0;
+    transition: opacity .25s;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- Gear icon (fixed, visible on paste screen) -->
+<button id="settings-icon-btn" aria-label="Settings" title="API Settings">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+  </svg>
+</button>
+
+<!-- Settings overlay + modal -->
+<div id="settings-overlay"></div>
+<div id="settings-modal" role="dialog" aria-modal="true" aria-label="API Settings">
+  <div class="sm-header">
+    <span class="sm-title">API Settings</span>
+    <button class="sm-close" id="sm-close-btn" aria-label="Close">×</button>
+  </div>
+  <div class="sm-field">
+    <label class="sm-label" for="model-select">Model</label>
+    <select id="model-select" class="sm-select">
+      <option value="google/gemma-4-31b-it:free">Gemma 4 31B — Google</option>
+      <option value="openai/gpt-oss-120b:free">GPT-OSS 120B — OpenAI</option>
+      <option value="deepseek/deepseek-v4-flash:free">DeepSeek V4 Flash</option>
+    </select>
+  </div>
+  <div class="sm-field">
+    <label class="sm-label" for="or-api-key">OpenRouter API Key</label>
+    <input id="or-api-key" class="sm-input" type="password" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false" />
+    <div class="sm-hint">Free key at <strong>openrouter.ai</strong> · stored locally in your browser</div>
+  </div>
+  <button class="sm-save-btn" id="sm-save-btn">Save</button>
+</div>
+
+<!-- Paste Screen -->
+<div id="paste-screen">
+  <div class="logo">Reader</div>
+  <p class="tagline">Paste any article, essay, or document. Select any word or phrase while reading to get an AI definition in context — then save it to your bookmarks.</p>
+  <textarea id="paste-area" placeholder="Paste your text here…" spellcheck="false"></textarea>
+  <button id="start-btn">Start reading →</button>
+</div>
+
+<!-- Reader Screen -->
+<div id="reader-screen">
+  <div id="top-bar">
+    <div class="logo-sm">Reader</div>
+    <span class="hint-text">Select any word to define it</span>
+    <div id="top-actions">
+      <button id="reader-settings-btn" title="API Settings" aria-label="API Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+      <button class="tb-btn" id="bm-toggle-btn">
+        ☆ Bookmarks <span id="bm-count">0</span>
+      </button>
+      <button class="tb-btn" id="reset-btn">← New text</button>
+    </div>
+  </div>
+  <div id="reading-area"></div>
+</div>
+
+<!-- Definition Popup -->
+<div id="popup-overlay"></div>
+<div id="popup" role="dialog" aria-modal="true">
+  <div id="popup-loading">
+    <span class="spin"></span> Looking up definition…
+  </div>
+  <div id="popup-content" style="display:none">
+    <div id="popup-term"></div>
+    <div id="popup-type"></div>
+    <div id="popup-def"></div>
+    <div id="popup-context"></div>
+    <div id="popup-actions">
+      <button class="p-btn" id="popup-close-btn">Dismiss</button>
+      <button class="p-btn save-btn" id="popup-save-btn">☆ Save bookmark</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bookmarks Panel -->
+<div id="bookmarks-panel">
+  <div id="bm-header">
+    <h3>Bookmarks</h3>
+    <button id="bm-close" aria-label="Close">×</button>
+  </div>
+  <div id="bm-list"></div>
+</div>
+
+<div id="saved-toast">Saved to bookmarks</div>
+
+<script>
+const pasteScreen      = document.getElementById('paste-screen');
+const readerScreen     = document.getElementById('reader-screen');
+const pasteArea        = document.getElementById('paste-area');
+const startBtn         = document.getElementById('start-btn');
+const readingArea      = document.getElementById('reading-area');
+const popup            = document.getElementById('popup');
+const popupOverlay     = document.getElementById('popup-overlay');
+const popupLoading     = document.getElementById('popup-loading');
+const popupContent     = document.getElementById('popup-content');
+const popupTerm        = document.getElementById('popup-term');
+const popupType        = document.getElementById('popup-type');
+const popupDef         = document.getElementById('popup-def');
+const popupCtx         = document.getElementById('popup-context');
+const popupCloseBtn    = document.getElementById('popup-close-btn');
+const popupSaveBtn     = document.getElementById('popup-save-btn');
+const bmPanel          = document.getElementById('bookmarks-panel');
+const bmList           = document.getElementById('bm-list');
+const bmToggleBtn      = document.getElementById('bm-toggle-btn');
+const bmClose          = document.getElementById('bm-close');
+const bmCount          = document.getElementById('bm-count');
+const toast            = document.getElementById('saved-toast');
+const resetBtn         = document.getElementById('reset-btn');
+const modelSelect      = document.getElementById('model-select');
+const orApiKey         = document.getElementById('or-api-key');
+const settingsIconBtn  = document.getElementById('settings-icon-btn');
+const readerSettingsBtn= document.getElementById('reader-settings-btn');
+const settingsOverlay  = document.getElementById('settings-overlay');
+const settingsModal    = document.getElementById('settings-modal');
+const smCloseBtn       = document.getElementById('sm-close-btn');
+const smSaveBtn        = document.getElementById('sm-save-btn');
+
+let bookmarks   = [];
+let currentData = null;
+let fullText    = '';
+let activeModel = '';
+let activeKey   = '';
+
+/* ── Restore saved prefs ── */
+try {
+  const savedModel = localStorage.getItem('reader_model');
+  if (savedModel) modelSelect.value = savedModel;
+  const savedKey = localStorage.getItem('reader_or_key');
+  if (savedKey) orApiKey.value = savedKey;
+} catch(e) {}
+
+try { bookmarks = JSON.parse(localStorage.getItem('reader_bookmarks') || '[]'); } catch(e) { bookmarks = []; }
+
+/* ── Settings modal ── */
+function openSettings() {
+  settingsModal.classList.add('open');
+  settingsOverlay.classList.add('open');
+}
+function closeSettings() {
+  settingsModal.classList.remove('open');
+  settingsOverlay.classList.remove('open');
+}
+
+settingsIconBtn.addEventListener('click', openSettings);
+readerSettingsBtn.addEventListener('click', openSettings);
+smCloseBtn.addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', closeSettings);
+
+smSaveBtn.addEventListener('click', () => {
+  const key = orApiKey.value.trim();
+  if (!key) { orApiKey.focus(); return; }
+  activeKey   = orApiKey.value.trim();
+  activeModel = modelSelect.value;
+  try {
+    localStorage.setItem('reader_model', activeModel);
+    localStorage.setItem('reader_or_key', activeKey);
+  } catch(e) {}
+  closeSettings();
+});
+
+/* ── Helpers ── */
+function saveBookmarks() {
+  try { localStorage.setItem('reader_bookmarks', JSON.stringify(bookmarks)); } catch(e) {}
+  bmCount.textContent = bookmarks.length;
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  setTimeout(() => toast.style.opacity = '0', 2200);
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderBookmarks() {
+  bmCount.textContent = bookmarks.length;
+  if (!bookmarks.length) {
+    bmList.innerHTML = '<div class="bm-empty">No bookmarks yet.<br>Select a word while reading<br>to save its definition here.</div>';
+    return;
+  }
+  bmList.innerHTML = bookmarks.map((b, i) => `
+    <div class="bm-item">
+      <button class="bm-del" data-i="${i}" aria-label="Delete">×</button>
+      <div class="bm-term">${esc(b.term)}</div>
+      <div class="bm-type">${esc(b.type||'')}</div>
+      <div class="bm-def">${esc(b.definition)}</div>
+      <div class="bm-sentence">"${esc(b.sentence)}"</div>
+    </div>`).join('');
+  bmList.querySelectorAll('.bm-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      bookmarks.splice(+btn.dataset.i, 1);
+      saveBookmarks();
+      renderBookmarks();
+    });
+  });
+}
+
+function getSentence(text, selection) {
+  const idx = text.indexOf(selection);
+  if (idx === -1) return selection;
+  const before = text.lastIndexOf('.', idx - 1);
+  const start  = before === -1 ? 0 : before + 1;
+  const end    = text.indexOf('.', idx + selection.length);
+  return text.slice(start, end === -1 ? text.length : end + 1).trim();
+}
+
+function positionPopup(x, y) {
+  popup.style.display = 'block';
+  const pw = popup.offsetWidth  || 360;
+  const ph = popup.offsetHeight || 240;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let left = x - pw / 2;
+  let top  = y + 16;
+  if (left < 8)           left = 8;
+  if (left + pw > vw - 8) left = vw - pw - 8;
+  if (top  + ph > vh - 8) top  = y - ph - 14;
+  popup.style.left = left + 'px';
+  popup.style.top  = top  + 'px';
+}
+
+function closePopup() {
+  popup.style.display = 'none';
+  popupOverlay.style.display = 'none';
+  currentData = null;
+}
+
+async function lookupDefinition(term, sentence, x, y) {
+  popupLoading.style.display = 'flex';
+  popupContent.style.display = 'none';
+  popupOverlay.style.display = 'block';
+  positionPopup(x, y);
+
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${activeKey}`,
+        'HTTP-Referer': window.location.href,
+        'X-Title': 'Reader — Define & Bookmark'
+      },
+      body: JSON.stringify({
+        model: activeModel,
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: `You are a dictionary. The user selected the term: "${term}"\n\nIt appears in this sentence: "${sentence}"\n\nRespond ONLY with a valid JSON object — no markdown, no backticks, no explanation outside the JSON. Fields:\n- term: the term in its canonical/base form\n- type: grammatical class and domain, e.g. "noun, finance" or "verb, computing" or "adjective, law"\n- definition: a strict dictionary-style definition. Format it exactly like a printed dictionary entry: lead with the part of speech in italics implied by plain text (e.g. "n." or "v." or "adj."), then the core meaning as a noun phrase or infinitive phrase — NOT a full sentence. No subject, no "it is", no "refers to", no context from the sentence. Max 20 words.\n\nGood examples:\n{"term":"liquidity","type":"noun, finance","definition":"n. The degree to which an asset can be quickly converted into cash at stable price."}\n{"term":"ephemeral","type":"adjective","definition":"adj. Lasting for a very short time; transitory."}\n{"term":"arbitrage","type":"noun, finance","definition":"n. Simultaneous buying and selling of an asset in different markets to profit from price differences."}\n\nBad examples (do NOT do these):\n{"definition":"In this context, liquidity refers to how easily assets can be turned into cash."}\n{"definition":"This word is used to describe things that don\'t last very long."}\n{"definition":"Liquidity is when you can easily convert assets to cash."}`
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw   = data.choices?.[0]?.message?.content || '';
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    currentData = { ...parsed, sentence };
+    popupTerm.textContent = parsed.term || term;
+    popupType.textContent = parsed.type || '';
+    popupDef.textContent  = parsed.definition || 'No definition available.';
+    const display = sentence.length > 160 ? sentence.slice(0, 160) + '…' : sentence;
+    popupCtx.textContent  = display;
+  } catch (e) {
+    currentData = { term, type: '', definition: 'Could not load definition. Check your API key and try again.', sentence };
+    popupTerm.textContent = term;
+    popupType.textContent = '';
+    popupDef.textContent  = currentData.definition;
+    popupCtx.textContent  = sentence;
+  }
+
+  popupLoading.style.display = 'none';
+  popupContent.style.display = 'block';
+  positionPopup(x, y);
+}
+
+/* ── Start reading ── */
+startBtn.addEventListener('click', () => {
+  const text = pasteArea.value.trim();
+  if (!text) return;
+  // pull active values — prefer already-set activeKey, then field
+  const key = activeKey || orApiKey.value.trim();
+  if (!key) { openSettings(); return; }
+  activeKey   = key;
+  activeModel = activeModel || modelSelect.value;
+  try {
+    localStorage.setItem('reader_model', activeModel);
+    localStorage.setItem('reader_or_key', activeKey);
+  } catch(e) {}
+  fullText = text;
+  readingArea.textContent = text;
+  pasteScreen.style.display  = 'none';
+  readerScreen.style.display = 'flex';
+  renderBookmarks();
+});
+
+/* ── Word selection ── */
+document.addEventListener('mouseup', e => {
+  if (popup.contains(e.target) || bmPanel.contains(e.target) || settingsModal.contains(e.target)) return;
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) return;
+  const selected = sel.toString().trim();
+  if (!selected || selected.length < 2 || selected.length > 120) return;
+  if (!readingArea.contains(sel.anchorNode)) return;
+  const range = sel.getRangeAt(0);
+  const rect  = range.getBoundingClientRect();
+  const x = rect.left + rect.width / 2 + window.scrollX;
+  const y = rect.bottom + window.scrollY;
+  const sentence = getSentence(fullText, selected);
+  lookupDefinition(selected, sentence, x, y);
+});
+
+popupCloseBtn.addEventListener('click', closePopup);
+popupOverlay.addEventListener('click', closePopup);
+
+popupSaveBtn.addEventListener('click', () => {
+  if (!currentData) return;
+  const dup = bookmarks.find(b =>
+    b.term.toLowerCase() === (currentData.term||'').toLowerCase() &&
+    b.sentence === currentData.sentence
+  );
+  if (!dup) {
+    bookmarks.unshift({
+      term: currentData.term,
+      type: currentData.type || '',
+      definition: currentData.definition,
+      sentence: currentData.sentence,
+      savedAt: new Date().toISOString()
+    });
+    saveBookmarks();
+    renderBookmarks();
+  }
+  showToast('Saved to bookmarks ☆');
+  closePopup();
+});
+
+bmToggleBtn.addEventListener('click', () => {
+  renderBookmarks();
+  bmPanel.style.display = bmPanel.style.display === 'flex' ? 'none' : 'flex';
+});
+
+bmClose.addEventListener('click', () => bmPanel.style.display = 'none');
+
+resetBtn.addEventListener('click', () => {
+  readerScreen.style.display = 'none';
+  pasteScreen.style.display  = 'flex';
+  pasteArea.value = '';
+  fullText = '';
+  closePopup();
+  bmPanel.style.display = 'none';
+});
+
+// Pre-load saved key/model into active vars if already stored
+activeKey   = orApiKey.value.trim();
+activeModel = modelSelect.value;
+
+renderBookmarks();
+</script>
+</body>
+</html>
